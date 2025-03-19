@@ -1,0 +1,7 @@
+1. If the channel is too errorsome, then, whatever, we do we may not be able to transmit any meaningful info. Hence, No.
+But, we could try to reduce errors, try to recover the original message using error correction codes etc.
+
+2. I have a proof that my encoding implementation in code is the best we could under some special case assumptions, i.e, with one to one encoding, a simple straight forward decoder etc.
+Due to time constraints, i have not given that proof here.
+
+3. I was able to find the mutual information for my encoding but i don't know how to find channel capacity over all possible pmf's of x exactly.  
