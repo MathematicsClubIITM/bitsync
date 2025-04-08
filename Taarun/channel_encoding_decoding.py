@@ -5,15 +5,12 @@ Purpose : To implement a slightly better one to one encoding between lowercase c
 send them through an erroneous channel, then, trying to recover the original text message
 Inputs : A string, (would be better if it is meaningful)
 Outputs : Encoded message (just the one-one mapping of the message)
-        Sent message (The message that is received by the receiver after passing through the channel)
+        received message (The message that is received by the receiver after passing through the channel)
         Decoded message list (The message list after decoding)
         Decoded message (finally, decoded message)
         Mutual information for this encoding
         Estimated channel capacity
-        Ideal probability list
-        Ranked list used here
-        Estimated ideal ranked list
-        Mutual information of a slightly better encoding
+        Character error rate
 Comments : I haven't documented this code properly.
 """
 
@@ -194,7 +191,7 @@ def entropy_calculator(prob_iterable):
         if i==0 or i==1:
             pass
         else:
-            entropy += -1*i*math.log(i)
+            entropy += -1*i*math.log2(i)
     return entropy
 
 def prob_errors_list_gen(channel_matrix, reverse_channel_matrix):
@@ -228,92 +225,6 @@ def max_index_of_list_finder(prob_iterable):
             max_element_index = i
     return max_element_index
 
-encodings_list1 = []
-char_desc_order1 = []
-temp_prob_of_possible_inputs1 = np.copy(prob_of_possible_inputs1)
-temp_prob_errors1 = prob_errors_list1.copy()
-ordered_prob_arr1 = np.zeros((no_of_inputs,), dtype="float64")
-
-while prob_of_possible_inputs1 !=[]:
-     i = min_index_of_list_finder(prob_errors_list1)
-     j = max_index_of_list_finder(prob_of_possible_inputs1)
-     ordered_prob_arr1[i] = prob_of_possible_inputs1[j]
-     encodings_list1.append(i+1)
-     char_desc_order1.append(possible_inputs1[j])
-     prob_errors_list1[i] = no_of_inputs
-     prob_of_possible_inputs1.pop(j)
-     possible_inputs1.pop(j)
-
-prob_of_possible_inputs1 = np.copy(temp_prob_of_possible_inputs1)
-prob_errors_list1 = temp_prob_errors1.copy()
-#print(char_desc_order1)
-#print(encodings_list1)
-
-message1 = str(input("Enter the message : "))
-"""
-message1 = ""
-no_of_trials = 80000
-char_to_check = "u"
-for i in range(no_of_trials):
-    message1 += char_to_check
-"""
-
-encoded_message1 = []
-for i in message1:
-    j = char_desc_order1.index(i)
-    encoded_message1.append(encodings_list1[j])
-print("Encoded message :", encoded_message1)
-
-def channel_simulator(channel_matrix, encoded_message_list):
-    sent_message = []
-    m, n = channel_matrix.shape
-    for i in encoded_message_list:
-        rand_num = random()
-        running_sum = 0
-        previous_running_sum = 0
-        for j in range(n):
-            running_sum+=channel_matrix[i-1, j]
-            if running_sum>rand_num>=previous_running_sum:
-                sent_message.append(j+1)
-            previous_running_sum = running_sum
-    return sent_message
-
-sent_message1 = channel_simulator(channel_matrix1, encoded_message1)
-print("Sent message :", sent_message1)
-
-def total_prob_matrix_gen(channel_matrix, ordered_prob_of_inputs):
-    prob_matrix = np.zeros(channel_matrix.shape, "float64")
-    m, n = channel_matrix.shape
-    for j in range(m):
-        prob_matrix[j] = channel_matrix[j] * ordered_prob_of_inputs[j]
-    return prob_matrix
-
-prob_matrix1 = total_prob_matrix_gen(channel_matrix1, ordered_prob_arr1)
-reverse_channel_matrix1 = reverse_channel_matrix_gen(prob_matrix1)
-
-def message_decoder(reverse_channel_matrix, sent_message, encodings_list, char_desc_order):
-    decoded_message_list = []
-    decoded_message_str = ""
-    m, n = reverse_channel_matrix.shape
-    for i in sent_message:
-        rand_num = random()
-        running_sum = 0
-        previous_running_sum = 0
-        for j in range(m):
-            running_sum += reverse_channel_matrix[j, i-1]
-            if running_sum > rand_num >= previous_running_sum:
-                decoded_message_list.append(j+1)
-                decoded_message_str += char_desc_order[encodings_list.index(j+1)]
-            previous_running_sum = running_sum
-    return decoded_message_list, decoded_message_str
-
-decoded_message_list1, decoded_message_str1 = message_decoder(reverse_channel_matrix1, sent_message1, encodings_list1, char_desc_order1)
-print("Decoded message list :", decoded_message_list1)
-print("Decoded message :", decoded_message_str1)
-
-#print(prob_of_possible_inputs1)
-#print(encodings_list1)
-#print(ordered_prob_arr1)
 
 def mutual_information_for_this_encoding(channel_matrix, ordered_prob_of_inputs):
     entropy_of_y_given_x = 0
@@ -329,9 +240,10 @@ def mutual_information_for_this_encoding(channel_matrix, ordered_prob_of_inputs)
     entropy_of_y = entropy_calculator(pmf_of_y)
     return entropy_of_y - entropy_of_y_given_x
 
-print("Mutual information for this encoding: ", mutual_information_for_this_encoding(channel_matrix1, ordered_prob_arr1))
 
-def channel_capacity_estimator(channel_matrix, initial_ordered_prob_of_inputs_arr, small_increment, no_of_runs):
+def channel_capacity_estimator(channel_matrix, small_increment, no_of_runs):
+    m,n = channel_matrix.shape
+    initial_ordered_prob_of_inputs_arr = np.full((m,), 1/m)
     ordered_prob_of_inputs = np.copy(initial_ordered_prob_of_inputs_arr)
     #ordered_prob_of_inputs = np.zeros((29,))
     #ordered_prob_of_inputs[0] = 1
@@ -352,6 +264,123 @@ def channel_capacity_estimator(channel_matrix, initial_ordered_prob_of_inputs_ar
             small_increment /= -2
     return max_mutual_information, ordered_prob_of_inputs
 
+channel_capacity1, ideal_prob_arr1 = channel_capacity_estimator(channel_matrix1, 0.5, 50)
+temp_ideal_prob_arr1 = np.copy(ideal_prob_arr1)
+ideal_ranked_list1 = []
+for _ in ideal_prob_arr1:
+    max_index = max_index_of_list_finder(temp_ideal_prob_arr1)
+    ideal_ranked_list1.append(max_index+1)
+    temp_ideal_prob_arr1[max_index] = -1
+
+#prob_errors_list1 = list(1-ideal_prob_arr1)
+
+encodings_list1 = []
+char_desc_order1 = []
+temp_prob_of_possible_inputs1 = np.copy(prob_of_possible_inputs1)
+temp_prob_errors1 = prob_errors_list1.copy()
+ordered_prob_arr1 = np.zeros((no_of_inputs,), dtype="float64")
+
+while prob_of_possible_inputs1 !=[]:
+     i = min_index_of_list_finder(prob_errors_list1)
+     j = max_index_of_list_finder(prob_of_possible_inputs1)
+     ordered_prob_arr1[i] = prob_of_possible_inputs1[j]
+     encodings_list1.append(i+1)
+     char_desc_order1.append(possible_inputs1[j])
+     prob_errors_list1[i] = no_of_inputs
+     prob_of_possible_inputs1.pop(j)
+     possible_inputs1.pop(j)
+
+
+prob_of_possible_inputs1 = np.copy(temp_prob_of_possible_inputs1)
+prob_errors_list1 = temp_prob_errors1.copy()
+#print(char_desc_order1)
+#print(encodings_list1)
+
+message1 = str(input("Enter the message : "))
+
+"""
+message1 = ""
+no_of_trials = 8000
+char_to_check = "u"
+for i in range(no_of_trials):
+    message1 += char_to_check
+"""
+
+"""message1 = "life is a journey filled with moments of joy, sorrow, success, and failure. it is a continuous cycle where individuals strive to achieve their dreams, face obstacles, and grow through experiences. every person has a unique path, shaped by choices, circumstances, and the people around them. while some may find success early in life, others may struggle for years before reaching their goals. however, the essence of life lies not in the destination but in the journey itself. every individual faces challenges. these difficulties come in various forms, from financial struggles to emotional distress. overcoming obstacles is an essential part of personal growth. persistence and resilience allow people to navigate through hardships and emerge stronger. sometimes, failures serve as stepping stones toward success, teaching valuable lessons along the way. instead of fearing failure, embracing it as a learning opportunity helps individuals move forward with renewed determination. happiness is another crucial aspect of life. many people associate happiness with wealth, fame, or material possessions. however, true happiness often lies in simple moments, such as spending time with loved ones, experiencing nature, or helping others. cultivating gratitude and appreciating small joys can lead to a more fulfilling life. people who focus on what they have rather than what they lack tend to experience greater satisfaction and peace. relationships play a significant role in shaping a persons life. family, friends, and mentors provide support, guidance, and encouragement. meaningful connections contribute to emotional wellbeing and create a sense of belonging. communication and understanding are vital in maintaining healthy relationships. expressing thoughts and emotions openly helps build trust and strengthens bonds between individuals. selfimprovement is a lifelong journey. learning new skills, expanding knowledge, and seeking personal growth lead to a more enriched life. curiosity and an open mind enable individuals to explore different perspectives and embrace change. setting goals and working towards them fosters a sense of purpose and motivation. personal development is not limited to academic or professional achievements but also includes emotional and spiritual growth. health is a fundamental aspect of life. physical wellbeing influences mental and emotional health. maintaining a balanced diet, engaging in regular exercise, and getting sufficient rest contribute to overall wellness. mental health is equally important, and managing stress, seeking support, and practicing mindfulness can improve emotional stability. prioritizing health ensures a better quality of life and enhances productivity. time is a valuable resource. how individuals choose to use their time greatly impacts their lives. time management skills help in balancing responsibilities, pursuing passions, and making time for relaxation. procrastination and distractions often hinder progress, making it essential to develop discipline and focus. making the most of each moment leads to a more meaningful and accomplished life. contributing to society adds purpose and fulfillment to life. acts of kindness, volunteering, and helping those in need create a positive impact on communities. giving back not only benefits others but also brings a sense of joy and satisfaction to the giver. small gestures, such as offering a helping hand or sharing words of encouragement, can make a difference in someones life. life is unpredictable. unexpected events and changes are inevitable. adaptability and flexibility allow individuals to cope with uncertainties and navigate through lifes twists and turns. embracing change rather than resisting it fosters growth and resilience. uncertainty should not be a source of fear but an opportunity for new experiences and learning. dreams and aspirations drive individuals to work hard and push their limits. setting realistic goals and staying committed to them leads to personal and professional achievements. passion and determination fuel success, while setbacks and challenges test perseverance. believing in oneself and staying dedicated to ones aspirations increase the chances of realizing dreams. life is a continuous process of learning, growing, and evolving. mistakes and failures are not signs of weakness but opportunities for improvement. selfreflection and introspection help individuals understand themselves better and make necessary adjustments in their lives. personal growth is an ongoing journey that requires effort, patience, and dedication. living in the present moment enhances the quality of life. dwelling on the past or worrying about the future often leads to stress and anxiety. appreciating the present, focusing on positive experiences, and practicing mindfulness contribute to overall happiness. making conscious efforts to stay in the moment helps individuals find joy in everyday life. every person has a unique story. experiences, choices, and perspectives shape their journey. respecting diversity and embracing different viewpoints foster a more inclusive and understanding society. learning from others and sharing experiences create meaningful connections and broaden perspectives. life is a journey filled with ups and downs, successes and failures, joys and sorrows. embracing each moment, learning from experiences, and striving for personal growth make the journey worthwhile. finding balance, nurturing relationships, prioritizing health, and staying true to oneself lead to a fulfilling and meaningful life. ultimately, the essence of life lies in the experiences, lessons, and connections that shape an individuals path."
+print("Message :", message1)"""
+
+encoded_message1 = []
+for i in message1:
+    j = char_desc_order1.index(i)
+    encoded_message1.append(encodings_list1[j])
+print("Encoded message :", encoded_message1)
+
+def channel_simulator(channel_matrix, encoded_message_list):
+    received_message = []
+    m, n = channel_matrix.shape
+    for i in encoded_message_list:
+        rand_num = random()
+        running_sum = 0
+        previous_running_sum = 0
+        for j in range(n):
+            running_sum+=channel_matrix[i-1, j]
+            if running_sum>rand_num>=previous_running_sum:
+                received_message.append(j+1)
+            previous_running_sum = running_sum
+    return received_message
+
+received_message1 = channel_simulator(channel_matrix1, encoded_message1)
+print("Received message :", received_message1)
+
+def total_prob_matrix_gen(channel_matrix, ordered_prob_of_inputs):
+    prob_matrix = np.zeros(channel_matrix.shape, "float64")
+    m, n = channel_matrix.shape
+    for j in range(m):
+        prob_matrix[j] = channel_matrix[j] * ordered_prob_of_inputs[j]
+    return prob_matrix
+
+prob_matrix1 = total_prob_matrix_gen(channel_matrix1, ordered_prob_arr1)
+reverse_channel_matrix1 = reverse_channel_matrix_gen(prob_matrix1)
+
+def message_decoder_type1(reverse_channel_matrix, received_message, encodings_list, char_desc_order):
+    decoded_message_list = []
+    decoded_message_str = ""
+    m, n = reverse_channel_matrix.shape
+    for i in received_message:
+        rand_num = random()
+        running_sum = 0
+        previous_running_sum = 0
+        for j in range(m):
+            running_sum += reverse_channel_matrix[j, i-1]
+            if running_sum > rand_num >= previous_running_sum:
+                decoded_message_list.append(j+1)
+                decoded_message_str += char_desc_order[encodings_list.index(j+1)]
+            previous_running_sum = running_sum
+    return decoded_message_list, decoded_message_str
+
+def message_decoder_type2(reverse_channel_matrix, received_message, encodings_list, char_desc_order):
+    decoded_message_list = []
+    decoded_message_str = ""
+    m, n = reverse_channel_matrix.shape
+    most_prob_input_line_list = []
+    for i in range(n):
+        max_index = max_index_of_list_finder(reverse_channel_matrix[:, i])
+        most_prob_input_line_list.append(max_index+1)
+    for i in received_message:
+        decoded_message_list.append(most_prob_input_line_list[i-1])
+        decoded_message_str += char_desc_order[encodings_list.index(most_prob_input_line_list[i-1])]
+    return decoded_message_list, decoded_message_str
+
+decoded_message_list1, decoded_message_str1 = message_decoder_type2(reverse_channel_matrix1, received_message1, encodings_list1, char_desc_order1)
+print("Decoded message list :", decoded_message_list1)
+print("Decoded message :", decoded_message_str1)
+
+#print(prob_of_possible_inputs1)
+#print(encodings_list1)
+#print(ordered_prob_arr1)
+
+print("Mutual information for this encoding: ", mutual_information_for_this_encoding(channel_matrix1, ordered_prob_arr1))
+
 """
 count = 0
 for i in decoded_message_str1:
@@ -361,13 +390,6 @@ print(count/no_of_trials)
 print(prob_errors_list1[encodings_list1[char_desc_order1.index(char_to_check)]-1])
 """
 
-channel_capacity1, ideal_prob_arr1 = channel_capacity_estimator(channel_matrix1, ordered_prob_arr1, 0.5, 50)
-temp_ideal_prob_arr1 = np.copy(ideal_prob_arr1)
-ideal_ranked_list1 = []
-for _ in ideal_prob_arr1:
-    max_index = max_index_of_list_finder(temp_ideal_prob_arr1)
-    ideal_ranked_list1.append(max_index+1)
-    temp_ideal_prob_arr1[max_index] = -1
 new_prob_arr1 = np.zeros((no_of_inputs,))
 temp_prob_of_possible_inputs1 = np.copy(prob_of_possible_inputs1)
 
@@ -377,7 +399,14 @@ for i in ideal_ranked_list1:
     temp_prob_of_possible_inputs1[max_index] = -1
 
 print("Channel_capacity :", channel_capacity1)
-print("Estimated Ideal probability list :", list(enumerate(np.insert(ideal_prob_arr1, 0,-1).tolist()))[1:])
-print("Ranked list used here :", encodings_list1)
-print("Estimated ideal ranked list :", list(ideal_ranked_list1))
-print("Mutual information of a slightly better encoding :", mutual_information_for_this_encoding(channel_matrix1, new_prob_arr1))
+#print("Estimated Ideal probability list :", list(enumerate(np.insert(ideal_prob_arr1, 0,-1).tolist()))[1:])
+#print("Ranked list used here :", encodings_list1)
+#print("Estimated ideal ranked list :", list(ideal_ranked_list1))
+#print("Mutual information of a slightly better encoding  using the ideal ranked list:", mutual_information_for_this_encoding(channel_matrix1, new_prob_arr1))
+
+count = 0
+no_of_characters = len(message1)
+for i in range(no_of_characters):
+    if message1[i] != decoded_message_str1[i]:
+        count+=1
+print("Character error rate :" , count/no_of_characters)
